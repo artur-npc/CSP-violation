@@ -1,15 +1,13 @@
- <!DOCTYPE html>                                                                                                                                                                    
-  <html lang="en">
-  <head>                                                                                                                                                                             
+  <!DOCTYPE html>
+  <html lang="en">                                                                                                                                                                   
+  <head>      
     <meta charset="UTF-8">
-    <title>EUD-5237 — Nonce propagation</title>
-                                                                                                                                                                                     
-    <!-- Strict CSP: inline scripts and styles are allowed only with nonce abc123xyz.                                                                                                
-         'strict-dynamic' trusts anything loaded by an already-trusted    (nonced) script. -->                                                                                          
+    <title>EUD-5701 — Nonce on unblocked script</title>                                                                                                                              
+   
     <meta http-equiv="Content-Security-Policy"                                                                                                                                       
-          content="                                                                                                                                                                  
+          content="
             default-src 'self';                                                                                                                                                      
-            script-src 'nonce-abc123xyz' 'strict-dynamic' https:;                                                                                                                    
+            script-src 'nonce-abc123xyz' 'strict-dynamic' https:;
             style-src 'self' 'nonce-abc123xyz';
             img-src 'self' data: https:;                                                                                                                                             
             font-src 'self' data: https:;
@@ -17,31 +15,37 @@
             frame-src 'self' https:;
           ">                                                                                                                                                                         
    
-    <!-- CMP loader carries the nonce. The SDK pulls in everything else itself. -->                                                                                                  
-    <script id="usercentrics-cmp"
-            src="https://web.cmp.usercentrics.eu/ui/loader.js"
+    <script id="usercentrics-cmp"                                                                                                                                                    
+            src="https://web.cmp.usercentrics-sandbox.eu/ui/pr/1467/loader.js"
             nonce="abc123xyz"                                                                                                                                                        
             data-settings-id="jtKp0I8ci"></script>
   </head>                                                                                                                                                                            
   <body>      
-    <h1>EUD-5237 — Nonce propagation test</h1>                                                                                                                                       
-    <p>Open DevTools → Console. There should be no <code>Refused to execute inline script</code> or <code>Refused to apply inline style</code>.</p>
+    <h1>EUD-5701 — Unblock preserves nonce</h1>
                                                                                                                                                                                      
-    <p>Also:</p>                                                                                                                                                                     
-    <ol>                                                                                                                                                                             
-      <li>In Elements, find <code>&lt;aside id="usercentrics-cmp-ui"&gt;</code> and expand its <em>#shadow-root</em>.</li>                                                           
-      <li>Every <code>&lt;style&gt;</code> inside the shadow root must have <code>nonce="abc123xyz"</code>.</li>                                                                     
-      <li>The banner must render correctly with styles applied (if styles are missing, the fix did not work).</li>                                                                   
-    </ol>                                                                                                                                                                            
+    <!-- Blocked script. The nonce is set by the server/template. After consent the SDK                                                                                              
+         must recreate it as application/javascript and PRESERVE the nonce. -->                                                                                                      
+    <script type="text/plain"                                                                                                                                                        
+            data-usercentrics="Google Tag Manager"
+            nonce="abc123xyz">                                                                                                                                                       
+      window.__unblockedAt = new Date().toISOString();
+      console.log('%c[UNBLOCKED OK]','color:green;font-weight:bold', window.__unblockedAt);                                                                                          
+    </script>                                                                                                                                                                        
+   
+    <p>                                                                                                                                                                              
+      1. Open DevTools → Console.<br>
+      2. Click <strong>Accept</strong> on the banner.<br>
+      3. A green <code>[UNBLOCKED OK]</code> log should appear. Run <code>window.__unblockedAt</code> — it must be a timestamp string.<br>                                           
+      4. There must be no <code>Refused to execute inline script</code>.<br>                                                                                                         
+      5. In Elements verify the new <code>&lt;script type="application/javascript"&gt;</code> that replaced the blocked one — it must carry <code>nonce="abc123xyz"</code>.          
+    </p>                                                                                                                                                                             
                                                                                                                                                                                      
-    <!-- Helper for quick verification from the console -->                                                                                                                          
-    <script nonce="abc123xyz">
-      window.checkCmpNonces = () => {                                                                                                                                                
-        const cmp = document.getElementById('usercentrics-cmp-ui');
-        const styles = cmp?.shadowRoot?.querySelectorAll('style') ?? [];                                                                                                             
-        console.table([...styles].map((s, i) => ({ index: i, nonce: s.nonce, hasContent: !!s.textContent.length })));                                                                
+    <script nonce="abc123xyz">                                                                                                                                                       
+      window.checkUnblockedNonce = () => {
+        const scripts = [...document.querySelectorAll('script[type="application/javascript"]')];                                                                                     
+        console.table(scripts.map((s, i) => ({ index: i, nonce: s.nonce, src: s.src || '(inline)' })));
       };                                                                                                                                                                             
-      console.log('Once the banner is rendered, run: checkCmpNonces()');                                                                                                             
+      console.log('After consent run: checkUnblockedNonce()');
     </script>                                                                                                                                                                        
   </body>                                                                                                                                                                            
-  </html>                     
+  </html>
