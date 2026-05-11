@@ -1,47 +1,42 @@
- <!DOCTYPE html>                                                                                                                                                                    
-  <html lang="en">
-  <head>                                                                                                                                                                             
-    <meta charset="UTF-8">
-    <title>EUD-5237 — Nonce propagation</title>
+  <!DOCTYPE html>
+  <html lang="en">                                                                                                                                                                   
+  <head>      
+    <meta charset="UTF-8">                                                                                                                                                           
+    <title>EUD-5237 — GTM-style injection fallback</title>
                                                                                                                                                                                      
-    <!-- Strict CSP: inline scripts and styles are allowed only with nonce abc123xyz.                                                                                                
-         'strict-dynamic' trusts anything loaded by an already-trusted    (nonced) script. -->                                                                                          
-    <meta http-equiv="Content-Security-Policy"                                                                                                                                       
+    <meta http-equiv="Content-Security-Policy"
           content="                                                                                                                                                                  
-            default-src 'self';                                                                                                                                                      
-            script-src 'nonce-abc123xyz' 'strict-dynamic' https:;                                                                                                                    
-            style-src 'self' 'nonce-abc123xyz';
-            img-src 'self' data: https:;                                                                                                                                             
-            font-src 'self' data: https:;
-            connect-src 'self' https:;                                                                                                                                               
-            frame-src 'self' https:;
-          ">                                                                                                                                                                         
-   
-    <!-- CMP loader carries the nonce. The SDK pulls in everything else itself. -->                                                                                                  
-    <script id="usercentrics-cmp"
-            src="https://web.cmp.usercentrics.eu/ui/loader.js"
-            nonce="abc123xyz"                                                                                                                                                        
-            data-settings-id="jtKp0I8ci"></script>
+            default-src 'self';
+            script-src 'nonce-abc123xyz' 'strict-dynamic' https:;
+            style-src 'self' 'nonce-abc123xyz';                                                                                                                                      
+            img-src 'self' data: https:;
+            font-src 'self' data: https:;                                                                                                                                            
+            connect-src 'self' https:;
+            frame-src 'self' https:;                                                                                                                                                 
+          ">
+                                                                                                                                                                                     
+    <!-- Simulating GTM: the injecting script has a nonce, the loader itself does not.                                                                                               
+         The SDK must pick up the nonce through document.currentScript.nonce.
+         'strict-dynamic' lets it through because the injecting script is already trusted. -->                                                                                       
+    <script nonce="abc123xyz">                                                                                                                                                       
+      const s = document.createElement('script');                                                                                                                                    
+      s.id = 'usercentrics-cmp';                                                                                                                                                     
+      s.src = 'https://web.cmp.usercentrics-sandbox.eu/ui/pr/1467/loader.js';
+      s.setAttribute('data-settings-id', 'jtKp0I8ci');                                                                                                                        
+      // Intentionally NOT setting a nonce on the loader itself.                                                                                                                     
+      document.head.appendChild(s);                                                                                                                                                  
+    </script>                                                                                                                                                                        
   </head>                                                                                                                                                                            
   <body>      
-    <h1>EUD-5237 — Nonce propagation test</h1>                                                                                                                                       
-    <p>Open DevTools → Console. There should be no <code>Refused to execute inline script</code> or <code>Refused to apply inline style</code>.</p>
-                                                                                                                                                                                     
-    <p>Also:</p>                                                                                                                                                                     
-    <ol>                                                                                                                                                                             
-      <li>In Elements, find <code>&lt;aside id="usercentrics-cmp-ui"&gt;</code> and expand its <em>#shadow-root</em>.</li>                                                           
-      <li>Every <code>&lt;style&gt;</code> inside the shadow root must have <code>nonce="abc123xyz"</code>.</li>                                                                     
-      <li>The banner must render correctly with styles applied (if styles are missing, the fix did not work).</li>                                                                   
-    </ol>                                                                                                                                                                            
-                                                                                                                                                                                     
-    <!-- Helper for quick verification from the console -->                                                                                                                          
-    <script nonce="abc123xyz">
-      window.checkCmpNonces = () => {                                                                                                                                                
-        const cmp = document.getElementById('usercentrics-cmp-ui');
+    <h1>GTM-style injection fallback</h1>
+    <p>The banner must load, styles inside the shadow DOM must carry the nonce, and no CSP errors should appear.</p>
+    <script nonce="abc123xyz">                                                                                                                                                       
+      window.checkCmpNonces = () => {
+        const cmp = document.getElementById('usercentrics-cmp-ui');                                                                                                                  
         const styles = cmp?.shadowRoot?.querySelectorAll('style') ?? [];                                                                                                             
-        console.table([...styles].map((s, i) => ({ index: i, nonce: s.nonce, hasContent: !!s.textContent.length })));                                                                
+        console.table([...styles].map((s, i) => ({ index: i, nonce: s.nonce })));
       };                                                                                                                                                                             
-      console.log('Once the banner is rendered, run: checkCmpNonces()');                                                                                                             
-    </script>                                                                                                                                                                        
+    </script> 
   </body>                                                                                                                                                                            
-  </html>                     
+  </html>     
+
